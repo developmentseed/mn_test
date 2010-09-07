@@ -1,0 +1,94 @@
+<?php
+// $Id: block.test,v 1.1.2.1.2.2 2009/04/23 05:39:52 boombatower Exp $
+/**
+ * @file
+ * Backport of Drupal 7 block.test with modifications, see BACKPORT.txt.
+ *
+ * Copyright 2008-2009 by Jimmy Berry ("boombatower", http://drupal.org/user/214218)
+ */
+
+require_once drupal_get_path('module', 'mn_test') . '/mn_web_test_case.php';
+
+class MnBasicTestCase extends MnWebTestCase {
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Managing News basics',
+      'description' => 'Install managing news and do the initial set up.',
+      'group' => 'Managing News',
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    parent::setUp();
+  }
+
+  function testWelcomePage() {
+    // Create and login admin user
+    $this->privileged_user = $this->drupalCreateUser(array(
+      'administer feeds', 'administer nodes', 'administer content types', 'administer mn'
+    ));
+    $this->drupalLogin($this->privileged_user);
+    
+    // Sets theme after login until missing login button is fixed
+    variable_set('theme_default', 'jake');
+            
+    // Import OPML and assert.
+    $file = $this->generateOPML();
+    $this->importFile('opml', $file);
+    $this->assertText('Created 1 feed node.');
+    $count = db_result(db_query("SELECT COUNT(*) FROM {feeds_source}"));
+    $this->assertEqual($count, 3, 'Found correct number of items.');
+
+    // Import a feed and then delete all items from it.
+    $this->drupalPost('node/3/import', array(), 'Import');
+    $this->assertText('Created 10 items.');
+    $this->drupalPost('node/3/delete-items', array(), 'Delete');
+    $this->assertText('Deleted 58 items.');
+  }
+  
+  function generateOPML() {
+    $path = $GLOBALS['base_url'] .'/'. drupal_get_path('module', 'mn_test') .'/tests/feeds/';
+
+    $output =
+    '<?xml version="1.0" encoding="utf-8"?>
+    <opml version="1.1">
+    <head>
+      <title>Feeds test OPML</title>
+      <dateCreated>Fri, 16 Oct 2009 02:53:17 GMT</dateCreated>
+      <ownerName></ownerName>
+    </head>
+    <body>
+    <outline text="Feeds test group" >
+      <outline title="Development Seed - Technological Solutions for Progressive Organizations" text="" xmlUrl="'. $path .'devseed.rss" type="rss" />
+    </outline>
+    </body>
+    </opml>';
+    
+    // UTF 8 encode output string and write it to disk
+    $output = utf8_encode($output);
+    $file = $this->absolute() .'/'. file_directory_path() .'/test-opml-'. $this->randomName() .'.opml';
+    $handle = fopen($file, 'w');
+    fwrite($handle, $output);
+    fclose($handle);
+    return $file;
+  }
+
+  function importFile($id, $file) {
+
+    $this->assertTrue(file_exists($file), 'Source file exists');
+    $edit = array(
+      'files[feeds]' => $file,
+    );
+    $this->drupalPost('import/'. $id, $edit, 'Import');
+  }
+  
+  public function absolute() {
+    return realpath(getcwd());
+  } 
+}
