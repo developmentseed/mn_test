@@ -49,7 +49,7 @@ class MnBasicTestCase extends MnWebTestCase {
     $this->drupalPost('node/3/import', array(), 'Import');
     $this->assertText('Created 10 items.');
     $this->drupalPost('node/3/delete-items', array(), 'Delete');
-    $this->assertText('All items of this feed have been deleted.');
+    $this->assertText('Deleted all items except those included in a channel.');
   }
   
   function generateOPML() {
